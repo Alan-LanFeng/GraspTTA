@@ -81,7 +81,7 @@ def run_simulation(hand_verts, hand_faces, obj_verts, obj_faces,
     p.setPhysicsEngineParameter(enableFileCaching=0, physicsClientId=conn_id)
     p.setPhysicsEngineParameter(numSolverIterations=150, physicsClientId=conn_id)
     p.setPhysicsEngineParameter(fixedTimeStep=simulation_step, physicsClientId=conn_id)
-    p.setGravity(0, 9.8, 0, physicsClientId=conn_id)
+    p.setGravity(0, 0, 9.8, physicsClientId=conn_id)
 
     # add hand
     base_tmp_dir = "tmp/objs"

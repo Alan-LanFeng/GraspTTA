@@ -44,8 +44,16 @@ def main(args, model, cmap_model, eval_loader, device, rh_mano, rh_faces):
     for batch_idx, (obj_id, obj_pc, origin_verts, origin_faces) in enumerate(eval_loader):
         if obj_id.item() != args.obj_id:
             continue
+        t = trimesh.load('/local/home/lafeng/Downloads/dataset/vhacd_mesh/1Shelves_842be31d76d29df0a00888d2bacdd893_0.002664003835872925/textured_simple.obj')
+        verts,_ = trimesh.sample.sample_surface(t, 3000)
+        obj_pc = torch.tensor(verts, dtype=torch.float32, device=device)
+        obj_cat = torch.zeros([3000, 1], device=obj_pc.device)
+        obj_cat[:] = 0.25
+        obj_pc = torch.cat([obj_pc, obj_cat], dim=1)
+        obj_pc = obj_pc.unsqueeze(0).transpose(1, 2)  # [1, 3, 3000]
         obj_xyz = obj_pc.permute(0,2,1)[:,:,:3].squeeze(0).cpu().numpy()  # [3000, 3]
-        origin_verts = origin_verts.squeeze(0).numpy()  # [N, 3]
+
+        origin_verts = t.vertices  # [N, 3]
         recon_params, R_list, trans_list, r_list = [], [], [], []
 
         for i in range(1000000):
@@ -103,7 +111,7 @@ def main(args, model, cmap_model, eval_loader, device, rh_mano, rh_faces):
             cam_extr = np.array([[1., 0., 0., 0.], [0., -1., 0., 0.], [0., 0., -1., 0.]]).astype(np.float32)
             obj_mesh_verts = obj_mesh_verts.dot(cam_extr[:3,:3].T)  # [N,3]
             obj_mesh = trimesh.Trimesh(vertices=obj_mesh_verts,
-                                       faces=origin_faces.squeeze(0).cpu().numpy().astype(np.int32))  # obj
+                                       faces=t.faces)  # obj
             final_mano = rh_mano(betas=recon_param[:, :10], global_orient=recon_param[:, 10:13],
                                  hand_pose=recon_param[:, 13:58], transl=recon_param[:, 58:])
             final_mano_verts = final_mano.vertices.squeeze(0).detach().cpu().numpy()  # [778, 3]
@@ -123,7 +131,7 @@ def main(args, model, cmap_model, eval_loader, device, rh_mano, rh_faces):
             contact = ~exterior
             sample_contact = contact.sum() > 0
             # simulation displacement
-            vhacd_exe = "/hand-object/v-hacd/build/linux/test/testVHACD"
+            vhacd_exe = "/local/home/lafeng/Desktop/v-hacd/app/TestVHACD"
             try:
                 simu_disp = run_simulation(final_mano_verts, rh_faces.reshape((-1, 3)),
                                           obj_mesh_verts, origin_faces.cpu().numpy().astype(np.int32).reshape((-1, 3)),
@@ -203,7 +211,7 @@ if __name__ == '__main__':
 
     # dataset
     dataset = HO3D_diversity()
-    dataloader = DataLoader(dataset=dataset, batch_size=1, shuffle=False, num_workers=1)
+    dataloader = DataLoader(dataset=dataset, batch_size=1, shuffle=False, num_workers=0)
     # mano hand model
     with torch.no_grad():
         rh_mano = mano.load(model_path='./models/mano/MANO_RIGHT.pkl',
